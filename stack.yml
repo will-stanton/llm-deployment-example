@@ -1,0 +1,63 @@
+Parameters:
+  PrincipalRoleArnParameter:
+    Type: String
+    Default: arn
+    Description: Insert AWS PrincipalRoleArn
+  AppRunnerAccessRoleArn:
+    Type: String
+    Description: Insert AppRunner Service Access Role for ECR
+  OpenAIAPIKey:
+    Type: String
+    Description: Insert OpenAI API Key
+  ECRImageTag:
+    Type: String
+    Description: Tag for Docker image in ECR
+
+Description: "CloudFormation Stack for ML Example"
+Resources:
+  ECRRepository: 
+    Type: AWS::ECR::Repository
+    Properties: 
+      RepositoryName: "ml-deployment-repository"
+      RepositoryPolicyText: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Sid: AllowPushPull
+            Effect: Allow
+            Principal: 
+              AWS: 
+                - Ref: PrincipalRoleArnParameter
+            Action: 
+              - "ecr:GetDownloadUrlForLayer"
+              - "ecr:BatchGetImage"
+              - "ecr:BatchCheckLayerAvailability"
+              - "ecr:PutImage"
+              - "ecr:InitiateLayerUpload"
+              - "ecr:UploadLayerPart"
+              - "ecr:CompleteLayerUpload"
+  AppRunnerService:
+    Type: AWS::AppRunner::Service
+    Properties:
+      ServiceName: ml-deployment-apprunner
+      SourceConfiguration:
+        AuthenticationConfiguration:
+          AccessRoleArn: !Ref AppRunnerAccessRoleArn
+        AutoDeploymentsEnabled: true
+        ImageRepository:
+          ImageIdentifier: 
+            !Join
+              - ''
+              - - !GetAtt ECRRepository.RepositoryUri
+                - ":"
+                - !Ref ECRImageTag
+          ImageRepositoryType: ECR
+          ImageConfiguration:
+            Port: 80
+            RuntimeEnvironmentVariables:
+              -
+                Name: OPENAI_API_KEY
+                Value: !Ref OpenAIAPIKey
+      InstanceConfiguration:
+        Cpu: 1 vCPU
+        Memory: 3 GB

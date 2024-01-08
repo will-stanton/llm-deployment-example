@@ -1,0 +1,33 @@
+name: Deploy CloudFormation Stack 
+
+on:
+
+  workflow_dispatch:
+
+permissions:
+      id-token: write   
+      contents: read    
+
+jobs:
+  deployStack:
+    name: Setup and deploy
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ secrets.ROLE_TO_ASSUME }}
+        role-session-name: GitHub_to_AWS_via_FederatedOIDC
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Deploy CloudFormation Stack
+      env: # Include CloudFormation parameters as environment variables
+        STACK_NAME: ${{ secrets.STACK_NAME }}
+        PRINCIPAL_ROLE_ARN: ${{ secrets.ROLE_TO_ASSUME }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        APPRUNNER_ACCESS_ROLE_ARN: ${{ vars.APPRUNNER_ACCESS_ROLE_ARN }}
+        ECR_IMAGE_TAG: ${{ vars.ECR_IMAGE_TAG }}
+      run: aws cloudformation deploy --stack-name "$STACK_NAME" --parameter-override PrincipalRoleArnParameter="$PRINCIPAL_ROLE_ARN"  AppRunnerAccessRoleArn="$APPRUNNER_ACCESS_ROLE_ARN" OpenAIAPIKey="$OPENAI_API_KEY" ECRImageTag="$ECR_IMAGE_TAG" --template-file stack.yml
